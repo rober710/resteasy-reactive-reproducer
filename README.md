@@ -1,67 +1,63 @@
-# Quarkus NPE Reproducer project
+# Quarkus Reproducer project
 
-This project is a simple reproducer for a NPE when using the `resteasy-reactive` extension.
+This project is a simple reproducer for various Quarkus update errors.
 
-The exception I get when calling the `/hello` endpoint is:
+When starting a Quarkus project that has controllers in other jars, the following error is thrown:
 
 ```text
-jakarta.ws.rs.ProcessingException: java.lang.NullPointerException: Cannot invoke "org.jboss.resteasy.reactive.client.impl.ClientRequestContextImpl.getRestClientRequestContext()" because "requestContext" is null
-        at org.jboss.resteasy.reactive.client.handlers.ClientResponseFilterRestHandler.handle(ClientResponseFilterRestHandler.java:25)
-        at org.jboss.resteasy.reactive.client.handlers.ClientResponseFilterRestHandler.handle(ClientResponseFilterRestHandler.java:10)
-        at org.jboss.resteasy.reactive.common.core.AbstractResteasyReactiveContext.invokeHandler(AbstractResteasyReactiveContext.java:231)
-        at org.jboss.resteasy.reactive.common.core.AbstractResteasyReactiveContext.run(AbstractResteasyReactiveContext.java:147)
-        at org.jboss.resteasy.reactive.client.impl.RestClientRequestContext$1.lambda$execute$0(RestClientRequestContext.java:314)
-        at io.vertx.core.impl.ContextInternal.dispatch(ContextInternal.java:279)
-        at io.vertx.core.impl.ContextInternal.dispatch(ContextInternal.java:261)
-        at io.vertx.core.impl.ContextInternal.lambda$runOnContext$0(ContextInternal.java:59)
-        at io.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java:173)
-        at io.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:166)
-        at io.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:470)
-        at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:566)
-        at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:997)
-        at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
-        at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+2024-07-18 12:19:58,554 ERROR [io.qua.run.boo.StartupActionImpl] (Quarkus Main Thread) Error running Quarkus: java.lang.reflect.InvocationTargetException
+        at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:118)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+        at io.quarkus.runner.bootstrap.StartupActionImpl$1.run(StartupActionImpl.java:115)
         at java.base/java.lang.Thread.run(Thread.java:1583)
-Caused by: java.lang.NullPointerException: Cannot invoke "org.jboss.resteasy.reactive.client.impl.ClientRequestContextImpl.getRestClientRequestContext()" because "requestContext" is null
-        at io.quarkus.rest.client.reactive.runtime.MicroProfileRestClientResponseFilter.filter(MicroProfileRestClientResponseFilter.java:38)
-        at org.jboss.resteasy.reactive.client.handlers.ClientResponseFilterRestHandler.handle(ClientResponseFilterRestHandler.java:21)
-        ... 15 more
+Caused by: java.lang.ExceptionInInitializerError
+        at java.base/jdk.internal.misc.Unsafe.ensureClassInitialized0(Native Method)
+        at java.base/jdk.internal.misc.Unsafe.ensureClassInitialized(Unsafe.java:1160)
+        at java.base/jdk.internal.reflect.MethodHandleAccessorFactory.ensureClassInitialized(MethodHandleAccessorFactory.java:300)
+        at java.base/jdk.internal.reflect.MethodHandleAccessorFactory.newConstructorAccessor(MethodHandleAccessorFactory.java:103)
+        at java.base/jdk.internal.reflect.ReflectionFactory.newConstructorAccessor(ReflectionFactory.java:200)
+        at java.base/java.lang.reflect.Constructor.acquireConstructorAccessor(Constructor.java:549)
+        at java.base/java.lang.reflect.Constructor.newInstanceWithCaller(Constructor.java:499)
+        at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:486)
+        at io.quarkus.runtime.Quarkus.run(Quarkus.java:70)
+        at io.quarkus.runtime.Quarkus.run(Quarkus.java:44)
+        at io.quarkus.runtime.Quarkus.run(Quarkus.java:124)
+        at io.quarkus.runner.GeneratedMain.main(Unknown Source)
+        at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+        ... 3 more
+Caused by: java.lang.RuntimeException: Failed to start quarkus
+        at io.quarkus.runner.ApplicationImpl.<clinit>(Unknown Source)
+        ... 16 more
+Caused by: java.lang.IllegalStateException: Security annotation placed on resource method 'com.kenect.integrations.models.LibraryController#doSomething' wasn't detected by Quarkus during the build time.
+Please report issue in Quarkus project.
+
+        at io.quarkus.resteasy.reactive.server.runtime.security.EagerSecurityHandler$Customizer.handlers(EagerSecurityHandler.java:263)
+        at org.jboss.resteasy.reactive.server.core.startup.RuntimeResourceDeployment.addHandlers(RuntimeResourceDeployment.java:629)
+        at org.jboss.resteasy.reactive.server.core.startup.RuntimeResourceDeployment.buildResourceMethod(RuntimeResourceDeployment.java:208)
+        at org.jboss.resteasy.reactive.server.core.startup.RuntimeDeploymentManager.deploy(RuntimeDeploymentManager.java:136)
+        at io.quarkus.resteasy.reactive.server.runtime.ResteasyReactiveRecorder.createDeployment(ResteasyReactiveRecorder.java:154)
+        at io.quarkus.deployment.steps.ResteasyReactiveProcessor$setupDeployment713137389.deploy_0(Unknown Source)
+        at io.quarkus.deployment.steps.ResteasyReactiveProcessor$setupDeployment713137389.deploy(Unknown Source)
+        ... 17 more
 ```
 
 ## How to reproduce
-Run the project and call the `/hello` endpoint with curl.
-Note: this project was tested with the following environment:
+The repo contains two separate maven projects. First, get into the `library` folder, and install its artifact locally, running `mvn clean install`.
+Then, get into the `app` folder and run the project with `mvn quarkus:dev`. After Quarkus loads, you'll get the error shown above.
+
+Note that this only happens if you have the `quarkus-security` extension in the classpath. If you remove the following dependency:
+```xml
+<dependency>
+    <groupId>io.quarkus</groupId>
+    <artifactId>quarkus-security</artifactId>
+</dependency>
+```
+
+the project runs normally.
+
+This doesn't happen in Quarkus 3.12.3.
+
+This project was tested with the following environment:
 - Open JDK 21.0.2
 - Maven 3.9.6 (via the wrapper in this project)
 - OS: Fedora Gnu/Linux 37
-
-```shell
-curl http://127.0.0.1:8080/hello
-```
-The expected result from the endpoint is the following text message:
-```text
-
-    -=[ teapot ]=-
-
-       _...._
-     .'  _ _ `.
-    | ."` ^ `". _,
-    \_;`"---"`|//
-      |       ;/
-      \_     _/
-        `"""`
-```
-Instead, I get an exception response:
-```text
-{"details":"Error id e26b4cf0-d92b-4536-bffb-fd174166c4f9-1, jakarta.ws.rs.ProcessingException: java.lang.NullPointerException: Cannot invoke \"org.jboss.resteasy.reactive.client.impl.ClientRequestContextImpl.getRestClientRequestContext()\" because \"requestContext\" is null","stack":"jakarta.ws.rs.ProcessingException: java.lang.NullPointerException: Cannot invoke \"org.jboss.resteasy.reactive.client.impl.ClientRequestContextImpl.getRestClientRequestContext()\" because \"requestContext\" is null\n\tat org.jboss.resteasy.reactive.client.handlers.ClientResponseFilterRestHandler.handle(ClientResponseFilterRestHandler.java:25)\n\tat org.jboss.resteasy.reactive.client.handlers.ClientResponseFilterRestHandler.handle(ClientResponseFilterRestHandler.java:10)\n\tat org.jboss.resteasy.reactive.common.core.AbstractResteasyReactiveContext.invokeHandler(AbstractResteasyReactiveContext.java:231)\n\tat org.jboss.resteasy.reactive.common.core.AbstractResteasyReactiveContext.run(AbstractResteasyReactiveContext.java:147)\n\tat org.jboss.resteasy.reactive.client.impl.RestClientRequestContext$1.lambda$execute$0(RestClientRequestContext.java:314)\n\tat io.vertx.core.impl.ContextInternal.dispatch(ContextInternal.java:279)\n\tat io.vertx.core.impl.ContextInternal.dispatch(ContextInternal.java:261)\n\tat io.vertx.core.impl.ContextInternal.lambda$runOnContext$0(ContextInternal.java:59)\n\tat io.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java:173)\n\tat io.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:166)\n\tat io.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:470)\n\tat io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:566)\n\tat io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:997)\n\tat io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)\n\tat io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)\n\tat java.base/java.lang.Thread.run(Thread.java:1583)\nCaused by: java.lang.NullPointerException: Cannot invoke \"org.jboss.resteasy.reactive.client.impl.ClientRequestContextImpl.getRestClientRequestContext()\" because \"requestContext\" is null\n\tat io.quarkus.rest.client.reactive.runtime.MicroProfileRestClientResponseFilter.filter(MicroProfileRestClientResponseFilter.java:38)\n\tat org.jboss.resteasy.reactive.client.handlers.ClientResponseFilterRestHandler.handle(ClientResponseFilterRestHandler.java:21)\n\t... 15 more"}
-```
-
-When I make the change in the PR https://github.com/quarkusio/quarkus/pull/41749, the exception is not thrown anymore and the expected response is returned.
-After compiling the extension and installing the jar locally, just add this to the pom to test the fix:
-```xml
-<dependency>
-    <groupId>io.quarkus.resteasy.reactive</groupId>
-    <artifactId>resteasy-reactive-client</artifactId>
-    <version>[999-SNAPSHOT]</version>
-</dependency>
-```
